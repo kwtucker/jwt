@@ -1,52 +1,32 @@
 package cmd
 
 import (
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	"io"
+	"os"
 	"strings"
 
+	"github.com/kwtucker/jwt/jwt"
 	"github.com/spf13/cobra"
 )
-
-type JWT struct {
-	Header  json.RawMessage `json:"header"`
-	Payload json.RawMessage `json:"payload"`
-}
 
 var RootCmd = &cobra.Command{
 	Use:   "jwt",
 	Short: "Constructs formatted commit messages",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	Run: func(_ *cobra.Command, args []string) {
-		encoded := args[0]
-		split := strings.Split(encoded, ".")
+		var input io.Reader
+		input = os.Stdin
 
-		if len(split) != 3 {
-			fmt.Println("Invalid JWT token")
-			return
+		if len(args) == 1 {
+			if arg := args[0]; arg != "" {
+				input = strings.NewReader(arg)
+			}
 		}
-		var jwt JWT
 
-		headerByts, err := base64.RawURLEncoding.DecodeString(split[0])
+		_, err := jwt.Decode(input, os.Stdout)
 		if err != nil {
-			fmt.Println("Error decoding header:", err)
-			return
+			fmt.Fprintln(os.Stderr, "Error decoding JWT:", err)
 		}
-		jwt.Header = json.RawMessage(headerByts)
-
-		payloadByts, err := base64.RawURLEncoding.DecodeString(split[1])
-		if err != nil {
-			fmt.Println("Error decoding payload:", err)
-			return
-		}
-		jwt.Payload = json.RawMessage(payloadByts)
-
-		byts, err := json.MarshalIndent(jwt, "", "  ")
-		if err != nil {
-			fmt.Println("Error marshaling JSON:", err)
-			return
-		}
-		fmt.Println(string(byts))
 	},
 }
